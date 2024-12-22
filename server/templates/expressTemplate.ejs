@@ -1,0 +1,8 @@
+const express = require('express');
+const app = express();
+
+app.get('<%= endpoint %>', (req, res) => {
+    res.json({ message: '<%= description %>' });
+});
+
+app.listen(3000, () => console.log('Generated API running on http://localhost:3000'));
