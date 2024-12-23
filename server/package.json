@@ -15,6 +15,7 @@
     "fs-extra": "^10.1.0",
     "joi": "^17.7.0",
     "morgan": "^1.10.0",
+    "prisma-class-dto-generator": "^6.0.5",
     "swagger-jsdoc": "^6.2.5",
     "swagger-ui-express": "^4.5.0"
   },

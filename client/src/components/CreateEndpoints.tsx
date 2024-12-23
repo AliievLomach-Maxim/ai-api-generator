@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import OpenAPIComponentModal from './OpenAPIComponentModal'
 import type { editor } from 'monaco-editor'
+import { generateAPIFromSchema } from '../api/api'
 
 interface Endpoint {
   path: string
@@ -32,6 +33,7 @@ interface ProjectData {
 interface Component {
   name: string
   schema: string
+  prismaModel: string
 }
 
 const CreateEndpoints: React.FC = () => {
@@ -54,34 +56,30 @@ const CreateEndpoints: React.FC = () => {
   const [selectedErrorComponent, setSelectedErrorComponent] = useState<string>('')
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  // Здесь должна быть логика загрузки компонентов с сервера
-  // Для примера, мы просто добавим несколько тестовых компонентов
-  React.useEffect(() => {
-    setComponents([
-      {
-        name: 'User',
-        schema:
-          '{ "type": "object", "properties": { "id": { "type": "integer" }, "name": { "type": "string" } } }',
-      },
-      {
-        name: 'Error',
-        schema:
-          '{ "type": "object", "properties": { "code": { "type": "integer" }, "message": { "type": "string" } } }',
-      },
-      {
-        name: 'Pagination',
-        schema:
-          '{ "type": "object", "properties": { "page": { "type": "integer" }, "pageSize": { "type": "integer" } } }',
-      },
-    ])
-  }, [])
-
   const handleEditorDidMount = (editor: any, monaco: any) => {
     editorRef.current = editor
   }
 
   const handleAddEndpoint = () => {
-    setEndpoints([...endpoints, currentEndpoint])
+    // Validate required fields
+    if (!currentEndpoint.path) {
+      alert('Please provide an endpoint path')
+      return
+    }
+
+    // Add the endpoint to the list
+    setEndpoints([
+      ...endpoints,
+      {
+        ...currentEndpoint,
+        // Ensure the path starts with a forward slash
+        path: currentEndpoint.path.startsWith('/')
+          ? currentEndpoint.path
+          : `/${currentEndpoint.path}`,
+      },
+    ])
+
+    // Reset the form
     setCurrentEndpoint({
       path: '',
       method: 'get',
@@ -118,26 +116,40 @@ const CreateEndpoints: React.FC = () => {
     }
   }
 
-  const handleSaveComponent = (newComponent: Record<string, any>) => {
+  const handleSaveComponent = (newComponent: Record<string, any>, prismaModel: string) => {
     const componentName = Object.keys(newComponent)[0]
     const newComponentObject = {
       name: componentName,
       schema: JSON.stringify(newComponent[componentName]),
+      prismaModel: prismaModel,
     }
     setComponents([...components, newComponentObject])
     setIsModalOpen(false)
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    // Validate that we have at least one endpoint
+    if (endpoints.length === 0) {
+      alert('Please add at least one endpoint before generating the schema')
+      return
+    }
+
     const openApiSchema = {
       openapi: '3.0.0',
       info: {
-        title: projectData.title,
-        version: projectData.version,
-        description: projectData.description,
-        termsOfService: projectData.termsOfService,
-        contact: projectData.contact,
-        license: projectData.license,
+        title: projectData.title || '',
+        version: projectData.version || '1.0.0',
+        description: projectData.description || '',
+        termsOfService: projectData.termsOfService || '',
+        contact: {
+          name: projectData.contact?.name || '',
+          url: projectData.contact?.url || '',
+          email: projectData.contact?.email || '',
+        },
+        license: {
+          name: projectData.license?.name || '',
+          url: projectData.license?.url || '',
+        },
       },
       components: {
         schemas: components.reduce((acc, component) => {
@@ -146,35 +158,54 @@ const CreateEndpoints: React.FC = () => {
         }, {} as Record<string, any>),
       },
       paths: endpoints.reduce((acc, endpoint) => {
-        acc[endpoint.path] = {
-          [endpoint.method]: {
-            parameters: JSON.parse(endpoint.parameters),
-            responses: {
-              '200': {
-                description: 'Successful response',
-                content: {
-                  'application/json': {
-                    schema: JSON.parse(endpoint.responseSchema),
-                  },
+        // Ensure the path starts with a forward slash
+        const path = endpoint.path.startsWith('/') ? endpoint.path : `/${endpoint.path}`
+
+        // Initialize the path object if it doesn't exist
+        if (!acc[path]) {
+          acc[path] = {}
+        }
+
+        // Add the method to the path
+        acc[path][endpoint.method] = {
+          summary: `${endpoint.method.toUpperCase()} ${path}`,
+          parameters: Array.isArray(JSON.parse(endpoint.parameters))
+            ? JSON.parse(endpoint.parameters)
+            : [],
+          responses: {
+            '200': {
+              description: 'Successful response',
+              content: {
+                'application/json': {
+                  schema: JSON.parse(endpoint.responseSchema),
                 },
               },
-              '400': {
-                description: 'Error response',
-                content: {
-                  'application/json': {
-                    schema: JSON.parse(endpoint.errorResponseSchema),
-                  },
+            },
+            '400': {
+              description: 'Error response',
+              content: {
+                'application/json': {
+                  schema: JSON.parse(endpoint.errorResponseSchema),
                 },
               },
             },
           },
         }
+
         return acc
       }, {} as Record<string, any>),
     }
 
-    console.log(JSON.stringify(openApiSchema, null, 2))
-    navigate('/')
+    console.log({
+      schema: JSON.stringify(openApiSchema, null, 2),
+      prismaModels: components.map((el) => el.prismaModel),
+    })
+    const res = await generateAPIFromSchema({
+      schema: JSON.stringify(openApiSchema, null, 2),
+      prismaModels: components.map((el) => el.prismaModel),
+    })
+    console.log('generateAPIFromSchema', res)
+    // navigate('/')
   }
 
   return (

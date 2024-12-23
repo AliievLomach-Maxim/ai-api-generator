@@ -37,6 +37,11 @@ const Sidebar: React.FC = () => {
               Manage Components
             </Link>
           </li>
+          <li className='mb-2'>
+            <Link to='/create-model' className='block py-2 px-4 hover:bg-gray-700 rounded'>
+              Create Model
+            </Link>
+          </li>
         </ul>
       </nav>
     </div>

@@ -10,6 +10,7 @@ import Sidebar from './components/Sidebar'
 import CreateProject from './components/CreateProject'
 import CreateEndpoints from './components/CreateEndpoints'
 import ManageComponents from './components/ManageComponents'
+import CreateModel from './components/CreateModel'
 
 const queryClient = new QueryClient()
 
@@ -29,6 +30,7 @@ const App: React.FC = () => {
               <Route path='/create-project' element={<CreateProject />} />
               <Route path='/create-endpoints' element={<CreateEndpoints />} />
               <Route path='/manage-components' element={<ManageComponents />} />
+              <Route path='/create-model' element={<CreateModel />} />
             </Routes>
           </div>
         </div>
